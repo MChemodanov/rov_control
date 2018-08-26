@@ -32,7 +32,7 @@ MAX_AMP = 0.25#0.25
 ESC_AMP = ESP_MAX*MAX_AMP
 FORWARD_K = 0.8#2.375
 
-MODE = "WORK" # "ROLL_PID" "PITCH_PID" "PITCH_K" "WORK"
+MODE = "WORK_" # "ROLL_PID" "PITCH_PID" "PITCH_K" "WORK"
 
 THRUSTER_UP_BACK = 5
 THRUSTER_ROTATE = 2
@@ -133,7 +133,9 @@ class BrThruster:
             self.set_default()
         return self.scaled_value
         
-        
+                    #self.channels[THRUSTER_UP_LEFT].set_value(fwd)
+            #self.channels[THRUSTER_UP_RIGHT].set_value(fwd)
+
 
 class RovController:
     def __init__ (self):
@@ -312,11 +314,11 @@ class RovController:
         else:
             rospy.logwarn(fwd)
             self.channels[THRUSTER_UP_BACK].set_value(fwd)
-            self.channels[THRUSTER_UP_LEFT].set_value(fwd)
+            #self.channels[THRUSTER_ROTATE].set_value(fwd)
+            #self.channels[THRUSTER_FWD_LEFT].set_value(fwd)
+            #self.channels[THRUSTER_FWD_RIGHT].set_value(fwd)
+            #self.channels[THRUSTER_UP_LEFT].set_value(fwd)
             #self.channels[THRUSTER_UP_RIGHT].set_value(fwd)
-            self.channels[THRUSTER_ROTATE].set_value(fwd)
-            self.channels[THRUSTER_FWD_LEFT].set_value(fwd)
-            self.channels[THRUSTER_FWD_RIGHT].set_value(fwd)
             #"""
 
     def callback(self, data):
