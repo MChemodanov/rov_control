@@ -7,6 +7,7 @@ from std_msgs.msg import Float32
 from rov_control.msg import Servo
 from sensor_msgs.msg import Joy
 from akara_msgs.msg import Thruster
+from sensor_msgs.msg import FluidPressure
 
 DEADBAND = 0.005
 
@@ -27,7 +28,7 @@ DEPTH_SHIFT = 0
 STOP_BUTTON = 1
 
 ESP_MAX = 375
-MAX_AMP = 0.25
+MAX_AMP = 0.25#0.25
 ESC_AMP = ESP_MAX*MAX_AMP
 FORWARD_K = 0.8#2.375
 
@@ -35,9 +36,9 @@ MODE = "WORK" # "ROLL_PID" "PITCH_PID" "PITCH_K" "WORK"
 
 THRUSTER_UP_BACK = 5
 THRUSTER_ROTATE = 2
-THRUSTER_UP_RIGHT = 3
+THRUSTER_UP_RIGHT = 4
 THRUSTER_FWD_LEFT  = 1
-THRUSTER_FWD_RIGHT = 4
+THRUSTER_FWD_RIGHT = 3
 THRUSTER_UP_LEFT = 6
 
 
@@ -148,6 +149,8 @@ class RovController:
         rospy.logwarn("!")
         self.channels[THRUSTER_UP_BACK] = BrThruster(False)
         self.channels[THRUSTER_ROTATE] = BrThruster(False, ESC_AMP/MAX_AMP*0.2, ESC_AMP/MAX_AMP*0.5) #cw, cr cw
+        #self.channels[THRUSTER_ROTATE] = BrThruster(False, MAX_AMP, ESP_MAX)  # cw, cr cw
+
         self.channels[THRUSTER_FWD_LEFT] = BrThruster(False, ESP_MAX, ESP_MAX)
         self.channels[THRUSTER_FWD_RIGHT] = BrThruster(True, ESP_MAX, ESP_MAX)
 
@@ -155,14 +158,14 @@ class RovController:
         rospy.Subscriber("rpy/roll", Float32, self.callback_roll)
         rospy.Subscriber("rpy/pitch", Float32, self.callback_pitch)
         rospy.Subscriber("rpy/yaw", Float32, self.callback_yaw)
-        rospy.Subscriber("pressure", Float32, self.callback_pressure)
+        rospy.Subscriber("pressure", FluidPressure, self.callback_pressure)
         rospy.Subscriber("calibrate_imu", Float32, self.callback_calibrate)
 
         self.pub_td = rospy.Publisher("target_depth", Float32, queue_size=10)
         self.pub_ty = rospy.Publisher("target_yaw", Float32, queue_size=10)
         self.pub_depth = rospy.Publisher("depth", Float32, queue_size=10)
         self.pub_led = rospy.Publisher("led", Float32, queue_size=10)
-        self.pub_manipulator = rospy.Publisher("manipulator", Thruster, queue_size=10)
+        self.pub_manipulator = rospy.Publisher("buoyancy", Thruster, queue_size=10)
 
         self.data = None
         self.pitch = 0
@@ -196,7 +199,7 @@ class RovController:
             self.pub_led.publish(self.led.scaled_value)
         if message.axes[5]:
             out = Thruster()
-            out.power = [-1*message.axes[5]*200]
+            out.power = [message.axes[5]*50]
             self.pub_manipulator.publish(out)
 
     def parse_thrusters(self, message):
@@ -247,8 +250,8 @@ class RovController:
             roll_delta = 0
             if message.buttons[3]:
                 if message.buttons[0]:
-                    self.channels[THRUSTER_UP_LEFT].set_value(lag * 0.5 + fwd * 0.1)
-                    self.channels[THRUSTER_UP_RIGHT].set_value(-lag * 0.5 + fwd * 0.1)
+                    self.channels[THRUSTER_UP_LEFT].set_value(lag * 0.75 + fwd * 0.1)
+                    self.channels[THRUSTER_UP_RIGHT].set_value(-lag * 0.75 + fwd * 0.1)
                     self.channels[THRUSTER_UP_BACK].set_value(-fwd * 0.1)
                 else:
                     self.channels[THRUSTER_UP_LEFT].set_value(lag * 2 + fwd * 0.5)
@@ -256,8 +259,8 @@ class RovController:
                     self.channels[THRUSTER_UP_BACK].set_value(-fwd * 0.5)
 
                 self.channels[THRUSTER_ROTATE].set_value(0)
-                self.channels[THRUSTER_FWD_LEFT].set_value(depth_power*0.25)
-                self.channels[THRUSTER_FWD_RIGHT].set_value(depth_power*0.25)
+                self.channels[THRUSTER_FWD_LEFT].set_value(depth_power*1)
+                self.channels[THRUSTER_FWD_RIGHT].set_value(depth_power*1)
             else:
                 self.channels[THRUSTER_FWD_LEFT].set_value((fwd * 0.5 - rotate * 0.2 - yaw_delta * yaw_p)*0.25)
                 self.channels[THRUSTER_FWD_RIGHT].set_value((fwd * 0.5 + rotate * 0.2 + yaw_delta * yaw_p)*0.25)
@@ -307,13 +310,13 @@ class RovController:
             self.previous_pitch = self.pitch
 
         else:
+            rospy.logwarn(fwd)
             self.channels[THRUSTER_UP_BACK].set_value(fwd)
-            #"""
-            #self.channels[THRUSTER_UP_LEFT].set_value(fwd)
+            self.channels[THRUSTER_UP_LEFT].set_value(fwd)
             #self.channels[THRUSTER_UP_RIGHT].set_value(fwd)
-            #self.channels[THRUSTER_ROTATE].set_value(fwd)
-            #self.channels[THRUSTER_FWD_LEFT].set_value(fwd)
-            #self.channels[THRUSTER_FWD_RIGHT].set_value(fwd)
+            self.channels[THRUSTER_ROTATE].set_value(fwd)
+            self.channels[THRUSTER_FWD_LEFT].set_value(fwd)
+            self.channels[THRUSTER_FWD_RIGHT].set_value(fwd)
             #"""
 
     def callback(self, data):
@@ -329,7 +332,7 @@ class RovController:
         self.yaw = float(yaw.data)
 
     def callback_pressure(self, depth):
-        self.pressure = float(depth.data)
+        self.pressure = float(depth.fluid_pressure)
         self.depth = DEPTH_K*self.pressure + DEPTH_SHIFT
         self.pub_depth.publish(self.depth)
 
