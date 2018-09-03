@@ -15,24 +15,24 @@ CAMERA_AXIS = 6
 FORWARD_AXIS = 1
 UP_AXIS = 2
 ROTATE_AXIS = 3
-LAG_AXIS = 0
+LAG_AXIS = 4 #0
 TURN_AXIS = 3
 DEPTH_AXIS = 2
 
 CAMERA_CH = 7
 
-DEPTH_K = 1
+DEPTH_K = 0.01
 
 DEPTH_SHIFT = 0
 
 STOP_BUTTON = 1
 
 ESP_MAX = 375
-MAX_AMP = 0.25#0.25
+MAX_AMP = 0.25 #0.25
 ESC_AMP = ESP_MAX*MAX_AMP
-FORWARD_K = 0.8#2.375
+FORWARD_K = 0.8 #2.375
 
-MODE = "WORK_" # "ROLL_PID" "PITCH_PID" "PITCH_K" "WORK"
+MODE = "WORK" # "ROLL_PID" "PITCH_PID" "PITCH_K" "WORK"
 
 THRUSTER_UP_BACK = 5
 THRUSTER_ROTATE = 2
@@ -167,7 +167,7 @@ class RovController:
         self.pub_ty = rospy.Publisher("target_yaw", Float32, queue_size=10)
         self.pub_depth = rospy.Publisher("depth", Float32, queue_size=10)
         self.pub_led = rospy.Publisher("led", Float32, queue_size=10)
-        self.pub_manipulator = rospy.Publisher("buoyancy", Thruster, queue_size=10)
+        self.pub_manipulator = rospy.Publisher("manipulator", Thruster, queue_size=10)
 
         self.data = None
         self.pitch = 0
@@ -187,7 +187,7 @@ class RovController:
 
         self.enabled = False
 
-        self.depth_scaler = KeepValueAxis(-1, 1, 0, 3, 0, 0, 0.01)
+        self.depth_scaler = KeepValueAxis(-1, 1, 0, 2, 0, 0, 0.01)
 
     def parse_buttons(self, message):
         self.channels[CAMERA_CH].do_step(message.axes[CAMERA_AXIS])
@@ -201,7 +201,7 @@ class RovController:
             self.pub_led.publish(self.led.scaled_value)
         if message.axes[5]:
             out = Thruster()
-            out.power = [message.axes[5]*50]
+            out.power = [message.axes[5]*105]
             self.pub_manipulator.publish(out)
 
     def parse_thrusters(self, message):
@@ -264,13 +264,18 @@ class RovController:
                 self.channels[THRUSTER_FWD_LEFT].set_value(depth_power*1)
                 self.channels[THRUSTER_FWD_RIGHT].set_value(depth_power*1)
             else:
-                self.channels[THRUSTER_FWD_LEFT].set_value((fwd * 0.5 - rotate * 0.2 - yaw_delta * yaw_p)*0.25)
-                self.channels[THRUSTER_FWD_RIGHT].set_value((fwd * 0.5 + rotate * 0.2 + yaw_delta * yaw_p)*0.25)
+                if message.buttons[8]:
+                  self.channels[THRUSTER_FWD_LEFT].set_value((fwd * 0.5 - rotate * 0.2 - yaw_delta * yaw_p)*0.5)
+                  self.channels[THRUSTER_FWD_RIGHT].set_value((fwd * 0.5 + rotate * 0.2 + yaw_delta * yaw_p)*0.5)
+                else:
+                  self.channels[THRUSTER_FWD_LEFT].set_value((fwd * 0.5 - rotate * 0.2 - yaw_delta * yaw_p)*0.25)
+                  self.channels[THRUSTER_FWD_RIGHT].set_value((fwd * 0.5 + rotate * 0.2 + yaw_delta * yaw_p)*0.25)
+
                 self.channels[THRUSTER_UP_BACK].set_value(trunc_value(depth_power + pitch_delta))
 
                 self.channels[THRUSTER_ROTATE].set_value(yaw_delta * yaw_p * 2 + rotate)
-                self.channels[THRUSTER_UP_LEFT].set_value(trunc_value(depth_power - roll_delta - pitch_delta - lag)/FORWARD_K*0.1)
-                self.channels[THRUSTER_UP_RIGHT].set_value(trunc_value(depth_power + roll_delta  - pitch_delta + lag)/FORWARD_K*0.1)
+                self.channels[THRUSTER_UP_LEFT].set_value(trunc_value(depth_power - roll_delta - pitch_delta - lag*1.5)/FORWARD_K*0.1)
+                self.channels[THRUSTER_UP_RIGHT].set_value(trunc_value(depth_power + roll_delta  - pitch_delta + lag*1.5)/FORWARD_K*0.1)
 
         elif MODE == "PITCH_K":
             k =  1.35 + abs(depth)*0.1
