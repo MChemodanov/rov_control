@@ -21,7 +21,7 @@ DEPTH_AXIS = 2
 
 CAMERA_CH = 7
 
-DEPTH_K = 0.01
+DEPTH_K = 0.001
 
 DEPTH_SHIFT = 0
 
@@ -213,7 +213,7 @@ class RovController:
         self.pub_td.publish(self.target_depth)
         if MODE == "WORK":
             self.target_depth = self.depth_scaler.set_value(depth)
-            depth_power = depth # s(self.depth - self.target_depth)*self.pid_depth_p
+            depth_power = 0 #(self.depth - self.target_depth)*0.01
             roll_delta  = self.roll_int*0.01
             self.pitch_int += self.pitch*0.005
 
